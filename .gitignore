@@ -1,0 +1,5 @@
+# ignore prebuilt simulations, they take too much space with the yumi robot. (300mb)
+*.agx
+
+# ignore pychache
+*.pyc
