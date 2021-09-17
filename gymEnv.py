@@ -16,6 +16,7 @@ import agxModel
 import sys
 import agxSDK
 import agxIO
+import agxCable
 
 import utils
 
@@ -48,10 +49,7 @@ class YumiPegInHole(AGXGymEnv):
                                  'yumi_joint_1_r', 'yumi_joint_2_r', 'yumi_joint_7_r', 'yumi_joint_3_r', 'yumi_joint_4_r', 'yumi_joint_5_r', 'yumi_joint_6_r']
        
         self.jointEffort = [50,50,50,50,50,50,50,50,50,50,50,50,50,50] #maximum joint effort, assuming same force in upper and lower, same order as jointNamesRevolute
-        self.grpperEffort  = 15 # set the grip force
-        self.jointNamesGrippers = ['gripper_l_joint', 'gripper_l_joint_m', 'gripper_r_joint', 'gripper_r_joint_m'] # name of gripper joints in urdf
-        self.gripperPosition = [0,0,0,0] # used to store gripper commands until they are used
-        self.gripperPositionRun = [0,0,0,0] # uesd for controlling. Both are needed for emulating yumi behaviour 
+
         self.scene_path = '/home/gabriel/gym-agx-yumi/assets/yumi_test.agx'
         self.lastClosestDist = None
         self.oldNSegmentsInserted = 0
@@ -74,7 +72,6 @@ class YumiPegInHole(AGXGymEnv):
         self.sim.addEventListener(utils.contactEventListenerRigidBody('gripper_r_finger_l', self.sim.getRigidBody('gripper_r_finger_l')))
 
 
-
     def _modify_visuals(self, root):
         self.app.getSceneDecorator().setBackgroundColor(agxRender.Color.BlanchedAlmond(), agxRender.Color.DimGray())
 
@@ -88,25 +85,43 @@ class YumiPegInHole(AGXGymEnv):
 
         self.agent_scene_decorator = AgentSceneDecorator(self.app)
 
-        #fl = agxOSG.createVisual(self.floor, root)
-        #agxOSG.setDiffuseColor(fl, agxRender.Color.LightGray())
+        fl = agxOSG.createVisual(self.floor, root)
+        agxOSG.setDiffuseColor(fl, agxRender.Color.LightGray())
         fl = agxOSG.createVisual(self.yumi, root)
         
     def _setup_gym_environment_spaces(self):
-        # TODO update these when obervation changes. 
-        self.action_space = gym.spaces.Box(low=np.array([-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1], dtype=np.float32), high=np.array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]), shape=(16,), dtype=np.float32)
-        upper = np.array([168.5, 43.5, 168.5, 80, 290, 138, 229], dtype=np.float32)*np.pi/(180)
-        lower = np.array([-168.5, -143.5, -168.5, -123.5, -290, -88, -229], dtype=np.float32)*np.pi/(180)
+        jointsVelHigh = np.array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], dtype=np.float32)
+        jointsVelLow = np.array([-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1], dtype=np.float32)
+        jointsPosHigh = np.array([168.5, 43.5, 168.5, 80, 290, 138, 229], dtype=np.float32)*np.pi/(180)
+        jointsPosLow = np.array([-168.5, -143.5, -168.5, -123.5, -290, -88, -229], dtype=np.float32)*np.pi/(180)
+
+        dlo = agxCable.Cable.find(self.sim, "DLO")
+        nSegments = dlo.getNumSegments()
+        DLOLowList = []
+        DLOHighList = []
+        for i in range(nSegments):
+            DLOLowList.append(np.array([-1, -1, -0.1]))
+            DLOHighList.append(np.array([1, 1, 1.5]))
+        DLOLow = np.array(DLOLowList, dtype=np.float32).flatten()
+        DLOHigh = np.array(DLOHighList, dtype=np.float32).flatten()
+
+        cylinderPosLow = np.array([-0.2, -0.3, 0])
+        cylinderPosHigh = np.array([0.5, 0.3, 0])
+
+        self.action_space = gym.spaces.Box(low=jointsVelLow, high=jointsVelHigh, shape=(16,), dtype=np.float32)
+
+        obsLow = np.hstack([jointsPosLow, jointsVelLow, DLOLow, cylinderPosLow])
+        obsHigh = np.hstack([jointsPosHigh, jointsVelHigh, DLOHigh, cylinderPosHigh])
+
         self.observation_space = gym.spaces.Box(
-            low=np.hstack([upper, upper]),
-            high=np.hstack([lower, lower]),
-            shape=(14,),
+            low=obsLow,
+            high=obsHigh,
+            shape=obsLow.shape,
             dtype=np.float32
         )
 
 
     def _observe(self):
-        # TODO change observation
         jointPositions = []
         jointVelocities = []
         for i in range(len(self.jointNamesRevolute)):
@@ -151,7 +166,6 @@ class YumiPegInHole(AGXGymEnv):
             self.yumi.getConstraint1DOF(self.jointNamesRevolute[i]).getMotor1D().setSpeed(float(action[i]) )
 
     def _reward(self, o, t):
-        #TODO update reward
         r = 0
         closestDist = self._closestPointToTarget()
         if self.lastClosestDist == None:

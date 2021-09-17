@@ -49,12 +49,6 @@ ALUMINUM_POISSON_RATIO = 0.35  # no unit
 ALUMINUM_YOUNG_MODULUS = 69e9  # Pascals
 ALUMINUM_YIELD_POINT = 5e7  # Pascals
 # Meshes and textures
-#FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-#PACKAGE_DIR = os.path.split(FILE_DIR)[0]
-#TEXTURE_GRIPPER_FILE = os.path.join(PACKAGE_DIR, "envs/assets/textures/texture_gripper.png")
-#MESH_GRIPPER_FILE = os.path.join(PACKAGE_DIR, "envs/assets/meshes/mesh_gripper.obj")
-
-#TODO update mesh path 
 MESH_HOLLOW_CYLINDER_FILE = os.path.join(PACKAGE_DIR, "assets/meshes/mesh_hollow_cylinder.obj")
 # Ground Parameters
 EYE = agx.Vec3(0, -1, 0.2)
