@@ -18,20 +18,17 @@ import os
 import agxUtil
 
 import utils
-# Local modules
-#from gym_agx.utils.agx_utils import create_body, save_simulation, to_numpy_array
-#from gym_agx.utils.agx_classes import KeyboardMotorHandler
 
 #logger = logging.getLogger('gym_agx.sims')
 # Set paths
 FILE_NAME = 'yumi_test'
 FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-print('FILE_DIR', FILE_DIR)
+#print('FILE_DIR', FILE_DIR)
 PACKAGE_DIR = FILE_DIR #os.path.split(FILE_DIR)[0]
-print('PACKAGE_DIR', PACKAGE_DIR)
+#print('PACKAGE_DIR', PACKAGE_DIR)
 
 URDF_PATH = FILE_DIR + "/yumi_description/urdf/yumi.urdf"
-print('URDF_PATH', URDF_PATH)
+#print('URDF_PATH', URDF_PATH)
 
 #FILE_NAME = "peg_in_hole"
 # Simulation parameters
@@ -142,9 +139,11 @@ def create_yumi(sim):
     
     utils.collisionBetweenBodies(yumi_assembly_ref.getRigidBody('gripper_r_base'), yumi_assembly_ref.getRigidBody('gripper_r_finger_r'), False)
     utils.collisionBetweenBodies(yumi_assembly_ref.getRigidBody('gripper_r_base'), yumi_assembly_ref.getRigidBody('gripper_r_finger_l'), False)
+    utils.collisionBetweenBodies(yumi_assembly_ref.getRigidBody('gripper_r_finger_r'), yumi_assembly_ref.getRigidBody('gripper_r_finger_l'), False)
 
     utils.collisionBetweenBodies(yumi_assembly_ref.getRigidBody('gripper_l_base'), yumi_assembly_ref.getRigidBody('gripper_l_finger_r'), False)
     utils.collisionBetweenBodies(yumi_assembly_ref.getRigidBody('gripper_l_base'), yumi_assembly_ref.getRigidBody('gripper_l_finger_l'), False)
+    utils.collisionBetweenBodies(yumi_assembly_ref.getRigidBody('gripper_l_finger_r'), yumi_assembly_ref.getRigidBody('gripper_l_finger_l'), False)
 
 def create_floor(sim):
     # ------------ Floor --------------------------------------------------
@@ -190,13 +189,8 @@ def create_DLO(sim):
     # Add connection between cable and gripper
     tf_0 = agx.AffineMatrix4x4()
     tf_0.setTranslate(0.0 ,0, 0.135)
-    #peg.add(agxCable.FreeNode(0.5,-0.0,-0.4))
     peg.add(agxCable.BodyFixedNode(sim.getRigidBody("gripper_r_base"), tf_0))
-    #peg.add(agxCable.FreeNode(0.5,-0.01,0.4))
-    print(sim.getRigidBody("gripper_r_base").getTransform())
-    print('position', sim.getRigidBody("gripper_r_base").getPosition())
     freePos = sim.getRigidBody("gripper_r_base").getTransform().transformPoint(agx.Vec3(0.0, 0, 0.3))
-    print('freePos',freePos)
     peg.add(agxCable.FreeNode(freePos))
 
     sim.add(peg)
@@ -273,14 +267,11 @@ def build_simulation():
     create_DLO(sim)
     # disable collision between floor and yumi body
     utils.collisionBetweenBodies(sim.getAssembly('floor').getRigidBody('floor'), sim.getAssembly('yumi').getRigidBody('yumi_body'), False)
-
-
-
+    dlo = agxCable.Cable.find(sim, "DLO")
+    agxUtil.setEnableCollisions(dlo,  sim.getAssembly('yumi').getRigidBody('gripper_r_finger_r'), False)
+    agxUtil.setEnableCollisions(dlo,  sim.getAssembly('yumi').getRigidBody('gripper_r_finger_l'), False)
 
     return sim
-
-
-
 
 def is_goal_reached(sim):
     """
@@ -349,47 +340,7 @@ def main(args):
         #logger.debug("Simulation saved!")
     #else:
         #logger.debug("Simulation not saved!")
-    '''
-    # Add app
-    app = add_rendering(sim)
-    app.init(agxIO.ArgumentParser([sys.executable, '--window', '400', '600'] + args))
-    app.setTimeStep(TIMESTEP)
-    app.setCameraHome(EYE, CENTER, UP)
-    app.initSimulation(sim, True)
-
-    cylinder_pos_x = np.random.uniform(-0.1, 0.1)
-    cylinder_pos_y = np.random.uniform(0.05, 0.05)
-
-    cylinder = sim.getRigidBody("hollow_cylinder")
-    cylinder.setPosition(agx.Vec3(cylinder_pos_x, cylinder_pos_y, 0.0))
-
-    segment_pos_old = compute_segments_pos(sim)
-    reward_type = "dense"
-
-    for _ in range(10000):
-        sim.stepForward()
-        app.executeOneStepWithGraphics()
-
-        # Get segments positions
-        segment_pos = compute_segments_pos(sim)
-
-        # Compute reward
-        if reward_type == "sparse":
-            reward, goal_reached = compute_dense_reward_and_check_goal(sim, segment_pos, segment_pos_old)
-        else:
-            goal_reached = is_goal_reached(sim)
-            reward = float(goal_reached)
-
-        segment_pos_old = segment_pos
-
-        if reward !=0:
-            print("reward: ", reward)
-
-        if goal_reached:
-            print("Success!")
-            break
-    '''
-
+ 
 if __name__ == '__main__':
     if agxPython.getContext() is None:
         init = agx.AutoInit()

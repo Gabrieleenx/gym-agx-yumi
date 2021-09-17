@@ -112,4 +112,23 @@ def compute_segments_pos(sim):
             segments_pos.append(to_numpy_array(pos))
             segment_iterator.inc()
 
-    return segments_pos
+    return np.array(segments_pos)
+
+
+
+
+class contactEventListenerRigidBody(agxSDK.ContactEventListener):
+    def __init__(self, name, rigidBody):
+        super().__init__()
+        self.contactState = False 
+        self.numContacts = 0
+        self.setName(name)
+        self.setFilter(agxSDK.RigidBodyFilter(rigidBody))
+
+    def impact(self, time, contact):
+        self.numContacts = len(contact.points())
+        if len(contact.points()) > 0:
+            self.contactState = True
+        else:
+            self.contactState = False
+        return agxSDK.ContactEventListener.KEEP_CONTACT

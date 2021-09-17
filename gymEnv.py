@@ -26,12 +26,12 @@ from agxPythonModules.agxGym.pfrl_utils import run_environment
 # Set paths
 FILE_NAME = 'yumi_test'
 FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-print('FILE_DIR', FILE_DIR)
+#print('FILE_DIR', FILE_DIR)
 PACKAGE_DIR = FILE_DIR #os.path.split(FILE_DIR)[0]
-print('PACKAGE_DIR', PACKAGE_DIR)
+#print('PACKAGE_DIR', PACKAGE_DIR)
 
 URDF_PATH = FILE_DIR + "/yumi_description/urdf/yumi.urdf"
-print('URDF_PATH', URDF_PATH)
+#print('URDF_PATH', URDF_PATH)
 
 def collisionBetweenBodies(RB1, RB2, collision=True):
     for i in range(len(RB1.getGeometries())):
@@ -40,8 +40,8 @@ def collisionBetweenBodies(RB1, RB2, collision=True):
 
 
 class YumiPegInHole(AGXGymEnv):
-    def __init__(self):
-        self.max_episode_steps = 400
+    def __init__(self, max_episode_steps):
+        self.max_episode_steps = max_episode_steps
         self.initJointPosList = [1.0, -2.0, -1.2, 0.6, -2.0, 1.0, 0.0, 0.0, 0.0, -1.0, -2.0, 1.2, 0.6, 2.0, 1.0, 0.0, 0.0, 0.0]
         # urdf name for joints 
         self.jointNamesRevolute = ['yumi_joint_1_l', 'yumi_joint_2_l', 'yumi_joint_7_l', 'yumi_joint_3_l', 'yumi_joint_4_l', 'yumi_joint_5_l', 'yumi_joint_6_l',\
@@ -53,112 +53,29 @@ class YumiPegInHole(AGXGymEnv):
         self.gripperPosition = [0,0,0,0] # used to store gripper commands until they are used
         self.gripperPositionRun = [0,0,0,0] # uesd for controlling. Both are needed for emulating yumi behaviour 
         self.scene_path = '/home/gabriel/gym-agx-yumi/assets/yumi_test.agx'
+        self.lastClosestDist = None
+        self.oldNSegmentsInserted = 0
+        self.goalThreshold = 5
         super().__init__()
 
     def _build_scene(self):
-        # ------------ Floor --------------------------------------------------
-        # Construct the floor that the yumi robot will stand 
-        
-        #self.floor = agxCollide.Geometry(agxCollide.Box(agx.Vec3(1, 1, 0.05)))
-        #self.floor.setPosition(0, 0, -0.05)
-        #self.sim.add(self.floor)
-        '''
-        material_ground = agx.Material("Aluminum")
-        self.floor = utils.create_body(name="floor", shape=agxCollide.Box(agx.Vec3(1, 1, 0.05)),
-                            position=agx.Vec3(0, 0, -0.05),
-                            motion_control=agx.RigidBody.STATIC,
-                            material=material_ground)
-        self.sim.add(self.floor)
 
-        # ------------- YuMi -------------------------------------------------- 
-
-        # initial joint position 
-        initJointPos = agx.RealVector()
-        for i in range(len(self.initJointPosList)):
-            initJointPos.append(self.initJointPosList[i])
-
-        # read urdf
-        yumi_assembly_ref = agxModel.UrdfReader.read(URDF_PATH, PACKAGE_DIR, initJointPos, True)
-        if (yumi_assembly_ref.get() == None):
-            print("Error reading the URDF file.")
-            sys.exit(2)
-        
-        # Add the yumi assembly to the simulation and create visualization for it
-        self.sim.add(yumi_assembly_ref.get())
-        
-        self.yumi = yumi_assembly_ref.get()
-
-        # Enable Motor1D (speed controller) on all revolute joints and set effort limits 
-        for i in range(len(self.jointNamesRevolute)):
-            self.yumi.getConstraint1DOF(self.jointNamesRevolute[i]).getMotor1D().setEnable(True)
-            self.yumi.getConstraint1DOF(self.jointNamesRevolute[i]).getMotor1D().setForceRange(-self.jointEffort[i], self.jointEffort[i])
-        
-        # Enable Motor1D (speed controller) on all prismatic joints (grippers) and set effort limits 
-        for i in range(len(self.jointNamesGrippers)):
-            self.yumi.getConstraint1DOF(self.jointNamesGrippers[i]).getMotor1D().setEnable(True)
-            self.yumi.getConstraint1DOF(self.jointNamesGrippers[i]).getMotor1D().setForceRange(-self.grpperEffort, self.grpperEffort)
-
-        # disable collision between floor and yumi body
-        #for i in range(len(yumi_assembly_ref.getRigidBody('yumi_body').getGeometries())):
-        #    self.floor.getRigidBody('yumi_body').getGeometries()[0](yumi_assembly_ref.getRigidBody('yumi_body').getGeometries()[i], False)
-        #print(self.floor.getRigidBody('floor'))
-        collisionBetweenBodies(self.floor.getRigidBody('floor'), yumi_assembly_ref.getRigidBody('yumi_body'), False)
-
-        # disable collision between connected links. 
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_body'), yumi_assembly_ref.getRigidBody('yumi_link_1_r'), False)
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_body'), yumi_assembly_ref.getRigidBody('yumi_link_1_l'), False)
-
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_1_r'), yumi_assembly_ref.getRigidBody('yumi_link_2_r'), False)
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_1_l'), yumi_assembly_ref.getRigidBody('yumi_link_2_l'), False)
-
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_2_r'), yumi_assembly_ref.getRigidBody('yumi_link_3_r'), False)
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_2_l'), yumi_assembly_ref.getRigidBody('yumi_link_3_l'), False)
-
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_3_r'), yumi_assembly_ref.getRigidBody('yumi_link_4_r'), False)
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_3_l'), yumi_assembly_ref.getRigidBody('yumi_link_4_l'), False)
-
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_4_r'), yumi_assembly_ref.getRigidBody('yumi_link_5_r'), False)
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_4_l'), yumi_assembly_ref.getRigidBody('yumi_link_5_l'), False)
-
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_5_r'), yumi_assembly_ref.getRigidBody('yumi_link_6_r'), False)
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_5_l'), yumi_assembly_ref.getRigidBody('yumi_link_6_l'), False)
-
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_6_r'), yumi_assembly_ref.getRigidBody('yumi_link_7_r'), False)
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_6_l'), yumi_assembly_ref.getRigidBody('yumi_link_7_l'), False)
-
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_6_r'), yumi_assembly_ref.getRigidBody('yumi_link_7_r'), False)
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_6_l'), yumi_assembly_ref.getRigidBody('yumi_link_7_l'), False)
-
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_7_r'), yumi_assembly_ref.getRigidBody('gripper_r_base'), False)
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('yumi_link_7_l'), yumi_assembly_ref.getRigidBody('gripper_l_base'), False)
-        
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('gripper_r_base'), yumi_assembly_ref.getRigidBody('gripper_r_finger_r'), False)
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('gripper_r_base'), yumi_assembly_ref.getRigidBody('gripper_r_finger_l'), False)
-
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('gripper_l_base'), yumi_assembly_ref.getRigidBody('gripper_l_finger_r'), False)
-        collisionBetweenBodies(yumi_assembly_ref.getRigidBody('gripper_l_base'), yumi_assembly_ref.getRigidBody('gripper_l_finger_l'), False)
-        
-        # --------------- Task -------------------------------------------
-        success = utils.save_simulation(self.sim, FILE_NAME)
-        '''
         scene = agxSDK.Assembly()  # Create a new empty Assembly
         if not agxIO.readFile(self.scene_path, self.sim, scene, agxSDK.Simulation.READ_ALL):
             raise RuntimeError("Unable to open file \'" + self.scene_path + "\'")
         scene.setName("main_assembly")
         self.sim.add(scene)
-        print(type(self.sim))
         self.yumi = self.sim.getAssembly('yumi')
         self.floor = self.sim.getAssembly('floor')
-        print('Finnish building ')
-        #for j in assemblies:
-        #    print(j.getName())
-        #self.gravity = self.sim.getUniformGravity()
-        #self.time_step = self.sim.getTimeStep()
-        #logger.debug("Timestep after readFile is: {}".format(self.time_step))
-        #logger.debug("Gravity after readFile is: {}".format(self.gravity))
+
+        # contact event listener     
+        self.sim.addEventListener(utils.contactEventListenerRigidBody('yumiContact', self.sim.getRigidBody('gripper_r_base')))
+        self.sim.addEventListener(utils.contactEventListenerRigidBody('gripper_r_finger_r', self.sim.getRigidBody('gripper_r_finger_r')))
+        self.sim.addEventListener(utils.contactEventListenerRigidBody('gripper_r_finger_l', self.sim.getRigidBody('gripper_r_finger_l')))
+
+
 
     def _modify_visuals(self, root):
-        #print('Inside _modify_visuals')
         self.app.getSceneDecorator().setBackgroundColor(agxRender.Color.BlanchedAlmond(), agxRender.Color.DimGray())
 
         cameraData = self.app.getCameraData()
@@ -171,8 +88,8 @@ class YumiPegInHole(AGXGymEnv):
 
         self.agent_scene_decorator = AgentSceneDecorator(self.app)
 
-        fl = agxOSG.createVisual(self.floor, root)
-        agxOSG.setDiffuseColor(fl, agxRender.Color.LightGray())
+        #fl = agxOSG.createVisual(self.floor, root)
+        #agxOSG.setDiffuseColor(fl, agxRender.Color.LightGray())
         fl = agxOSG.createVisual(self.yumi, root)
         
     def _setup_gym_environment_spaces(self):
@@ -195,15 +112,26 @@ class YumiPegInHole(AGXGymEnv):
         for i in range(len(self.jointNamesRevolute)):
             jointPositions.append(self.yumi.getConstraint1DOF(self.jointNamesRevolute[i]).getAngle())
             jointVelocities.append(self.yumi.getConstraint1DOF(self.jointNamesRevolute[i]).getCurrentSpeed())
+        jointPositions = np.array(jointPositions, dtype=np.float32)
+        jointVelocities = np.array(jointVelocities, dtype=np.float32)
 
         # meassure force and torque (seams to be in zyx)
         forces = [0,0,0,0,0,0]
         for i in range(6): 
             forces[i] = self.yumi.getConstraint('yumi_link_7_r_joint').getCurrentForce(i)
+        
+        # get DLO point cloud 
+        self.DLOPointCloud = utils.compute_segments_pos(self.sim)
+        DLOPointCloud = self.DLOPointCloud.flatten()
 
-        DLOPointCloud = utils.compute_segments_pos(self.sim)
+        # get Cylinder position 
 
-        o = np.array(jointPositions, dtype=np.float32)
+        cylinder = self.sim.getRigidBody("hollow_cylinder")
+        cylinderPos = cylinder.getPosition()
+        self.cylinderPos = utils.to_numpy_array(cylinderPos)
+
+        # stack observations 
+        o = np.hstack([jointPositions, jointVelocities, DLOPointCloud, self.cylinderPos])
         
         t = self._terminal(o)
         r = self._reward(o, t)
@@ -213,30 +141,72 @@ class YumiPegInHole(AGXGymEnv):
                 self.agent_scene_decorator.update(self.step_nb, r, observation=o)
             except:
                 pass
-                #print('-')
-
 
         return o, r, t, {}
 
 
     def _set_action(self, action):
         action = np.clip(action, self.action_space.low, self.action_space.high)
-        #print('action', action)
         for i in range(len(self.jointNamesRevolute)):
             self.yumi.getConstraint1DOF(self.jointNamesRevolute[i]).getMotor1D().setSpeed(float(action[i]) )
 
-        #self.cart.addForce(20 * float(action[0]), 0.0, 0.0)
-
     def _reward(self, o, t):
+        #TODO update reward
+        r = 0
+        closestDist = self._closestPointToTarget()
+        if self.lastClosestDist == None:
+            self.lastClosestDist = closestDist
+
+        if closestDist < self.lastClosestDist:
+            r += 1e-2
+        elif closestDist > self.lastClosestDist:
+            r -= 1e-2
+        else:
+            r += 0
+
+        nSegmentsInserted = self._determineNSegmentsInserted()
+        diff= nSegmentsInserted - self.oldNSegmentsInserted
+        self.oldNSegmentsInserted = nSegmentsInserted
+        r += diff
+
+        if self._is_goal_reached(nSegmentsInserted):
+            return r + 5 
+
         if t:
             return -1
-        r = 0
-        #if abs(o[2]) < math.radians(12):
-        #    r = 1
+
         return r
 
     def _terminal(self, o):
-        #o_clipped = np.clip(o, self.observation_space.low, self.observation_space.high)
-        #crashed = not np.array_equiv(o_clipped, o)
-        return self.step_nb >= self.max_episode_steps# or crashed
+        return self.step_nb >= self.max_episode_steps or self._yumiCollision()
+
+    def _yumiCollision(self):
+        event1 = self.sim.getEventListener('yumiContact')
+        event2 = self.sim.getEventListener('gripper_r_finger_r')
+        event3 = self.sim.getEventListener('gripper_r_finger_l')
+        
+        return event1.contactState or event2.contactState or event3.contactState
+
+
+    def _is_goal_reached(self, nInsertedSegments):
+        if nInsertedSegments > self.goalThreshold:
+            return True
+        else:
+            return False
+
+    def _determineNSegmentsInserted(self):
+        n_inserted = 0
+        for i in range(self.DLOPointCloud.shape[0]):
+            p = self.DLOPointCloud[i]
+            if (self.cylinderPos[0]-0.015 <= p[0] <= self.cylinderPos[0]+0.015 and
+                    self.cylinderPos[1]-0.015 <= p[1] <= self.cylinderPos[1]+0.015 and
+                    -0.1 <= p[2] <=0.07):
+                n_inserted += 1
+        return n_inserted
+
+    def _closestPointToTarget(self): 
+        dist = np.linalg.norm(self.DLOPointCloud -self.cylinderPos, axis=1)
+        return np.min(dist)
+            
+
 
