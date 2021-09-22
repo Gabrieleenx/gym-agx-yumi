@@ -27,9 +27,9 @@ from agxPythonModules.agxGym.pfrl_utils import run_environment
 # Set paths
 FILE_NAME = 'yumi_test'
 FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-#print('FILE_DIR', FILE_DIR)
+print('FILE_DIR', FILE_DIR)
 PACKAGE_DIR = FILE_DIR #os.path.split(FILE_DIR)[0]
-#print('PACKAGE_DIR', PACKAGE_DIR)
+print('PACKAGE_DIR', PACKAGE_DIR)
 
 URDF_PATH = FILE_DIR + "/yumi_description/urdf/yumi.urdf"
 #print('URDF_PATH', URDF_PATH)
@@ -50,7 +50,7 @@ class YumiPegInHole(AGXGymEnv):
        
         self.jointEffort = [50,50,50,50,50,50,50,50,50,50,50,50,50,50] #maximum joint effort, assuming same force in upper and lower, same order as jointNamesRevolute
 
-        self.scene_path = '/home/gabriel/gym-agx-yumi/assets/yumi_test.agx'
+        self.scene_path = FILE_DIR + '/assets/yumi_test.agx'
         self.lastClosestDist = None
         self.oldNSegmentsInserted = 0
         self.goalThreshold = 5

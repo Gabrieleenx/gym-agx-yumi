@@ -43,7 +43,7 @@ PEG_POISSON_RATIO = 0.1  # no unit
 YOUNG_MODULUS_BEND = 2e5  # 1e4
 YOUNG_MODULUS_TWIST = 2e5  # 1e10
 YOUNG_MODULUS_STRETCH = 1e8  # Pascals
-
+ROPE_LENGTH = 0.2
 # Aluminum Parameters
 ALUMINUM_POISSON_RATIO = 0.35  # no unit
 ALUMINUM_YOUNG_MODULUS = 69e9  # Pascals
@@ -184,7 +184,7 @@ def create_DLO(sim):
     tf_0 = agx.AffineMatrix4x4()
     tf_0.setTranslate(0.0 ,0, 0.135)
     peg.add(agxCable.BodyFixedNode(sim.getRigidBody("gripper_r_base"), tf_0))
-    freePos = sim.getRigidBody("gripper_r_base").getTransform().transformPoint(agx.Vec3(0.0, 0, 0.3))
+    freePos = sim.getRigidBody("gripper_r_base").getTransform().transformPoint(agx.Vec3(0.0, 0, ROPE_LENGTH+0.135))
     peg.add(agxCable.FreeNode(freePos))
 
     sim.add(peg)
@@ -267,61 +267,6 @@ def build_simulation():
 
     return sim
 
-def is_goal_reached(sim):
-    """
-    Checks if positions of cable segments on lower end are within goal region. Returns True if cable is partially
-    inserted and False otherwise.
-    """
-    cable = agxCable.Cable.find(sim, "DLO")
-    n_segments = cable.getNumSegments()
-    segment_iterator = cable.begin()
-    cylinder_pos = sim.getRigidBody("hollow_cylinder").getPosition()
-
-    for i in range(0, n_segments):
-        if not segment_iterator.isEnd():
-            p = segment_iterator.getGeometry().getPosition()
-            segment_iterator.inc()
-
-            if i >= n_segments/2:
-                # Return False if segment is ouside bounds
-                if not (cylinder_pos[0]-0.015 <= p[0] <= cylinder_pos[0]+0.015 and
-                        cylinder_pos[1]-0.015 <= p[1] <= cylinder_pos[1]+0.015 and
-                        -0.1 <= p[2] <=0.07):
-                    return False
-
-    return True
-
-
-def determine_n_segments_inserted(segment_pos, cylinder_pos):
-    """
-    Determine number of segments that are inserted into the hole.
-    :param segment_pos:
-    :return:
-    """
-
-    n_inserted = 0
-    for p in segment_pos:
-        # Return False if segment is ouside bounds
-        if cylinder_pos[0]-0.015 <= p[0] <= cylinder_pos[0]+0.015 and \
-            cylinder_pos[1]-0.015 <= p[1] <= cylinder_pos[1]+ 0.015 and \
-                -0.1 <= p[2] <=0.07:
-            n_inserted +=1
-    return n_inserted
-
-
-def compute_dense_reward_and_check_goal(sim, segment_pos_0, segment_pos_1):
-    cylinder_pos = sim.getRigidBody("hollow_cylinder").getPosition()
-    n_segs_inserted_0 = determine_n_segments_inserted(segment_pos_0, cylinder_pos)
-    n_segs_inserted_1 = determine_n_segments_inserted(segment_pos_1, cylinder_pos)
-    n_segs_inserted_diff = n_segs_inserted_0 - n_segs_inserted_1
-
-    cable = agxCable.Cable.find(sim, "DLO")
-    n_segments = cable.getNumSegments()
-
-    # Check if final goal is reached
-    final_goal_reached = n_segs_inserted_0 >= n_segments/2
-
-    return np.sum(n_segs_inserted_diff) + 5*float(final_goal_reached), final_goal_reached
 
 
 def main(args):
